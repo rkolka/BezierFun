@@ -61,18 +61,12 @@
     <Content Include="BezierFun.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="BezierFunUtils.sql">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="BezierFunTest.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="BezierFun.dll.addin">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Content Include="BezierFun.md.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <ItemGroup>
     <None Include="BezierFun.map">

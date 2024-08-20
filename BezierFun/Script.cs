@@ -19,7 +19,6 @@ public partial class Script
     /// </summary>
     private static readonly string[] FilesToImport = {
         "BezierFun.sql",
-        "BezierFunUtils.sql",
         "BezierFunTest.sql", 
     };
 
@@ -45,8 +44,8 @@ public partial class Script
                 }
                 else
                 {
-                    string message = $"{db.GetComponentType(fname).ToUpper()} {fname} already exists.";
-                    app.Log(DisplayHelp()); 
+                    string message = $"{db.GetComponentType(fname).ToUpper()} {AddinCodeFolder}\\{fname} already exists.";
+                    app.Log(message); 
                     app.MessageBox(message, "Warning");
                 }
             }

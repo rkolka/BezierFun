@@ -26,7 +26,6 @@ copy BezierFun.sql "%M9%\BezierFun\"
 copy BezierFunTest.sql "%M9%\BezierFun\"
 
 copy BezierFun.uninstall.bat "%M9%\BezierFun\"
-copy BezierFun.md.txt "%M9%\BezierFun\"
 goto END
 
 :CANNOTCREATEDIR

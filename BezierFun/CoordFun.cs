@@ -66,5 +66,38 @@ public partial class Script
         Vector2 v2 = Prod2(Prod2(n, v), n);   // v2 = nvn
         return shift2(b, v2);
     }
+
+
+    /// <summary>
+    /// From Manifold.Geom.CoordSet to array of Manifold.Point<double>
+    /// Possibly with extra emtpy array elements at start and end
+    /// </summary>
+    /// <param name="coords"></param>
+    /// <param name="extra"></param>
+    /// <returns></returns>
+    public static Coord2[] CoordArray(Manifold.Geom.CoordSet coords, bool extra)
+    {
+        Coord2[] coordsArray;
+
+        int start = 0;
+
+        if (extra)
+        {
+            coordsArray = new Coord2[coords.Count + 2];
+            start = 1;
+        }
+        else
+        {
+            coordsArray = new Coord2[coords.Count];
+        }
+
+        for (int i = 0; i < coords.Count; ++i)
+        {
+            coordsArray[start + i] = coords[i];
+        }
+
+        return coordsArray;
+    }
+
 }
 

@@ -18,10 +18,23 @@ public partial class Script
     private static readonly int num_of_bezier_segments = 16;
     private static readonly float[,] interpolation_params = ComputeIterpolationParameters(num_of_bezier_segments);
 
-    private static readonly float default_alpha = 1;
-    private static float default_skew = 0;
 
 
+
+    /// <summary>
+    /// Bezier curve with default parameters
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <returns></returns>
+    public static Geom GeomBezier(Geom geom) => BuildCubicBezier(geom, GeomBezierControls(geom, false));
+
+    /// <summary>
+    /// Bezier curve with custom curvedness parameter value
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <param name="alpha">The curvedness parameter (0 is linear, 1 is round, >1 is increasingly curved)</param>
+    /// <returns></returns>
+    public static Geom GeomBezierAlpha(Geom geom, double alpha) => BuildCubicBezier(geom, GeomBezierControls(geom, false, (float)alpha));
 
     /// <summary>
     /// Creates a geometry of linearized Cubic Bezier Curves
@@ -33,21 +46,52 @@ public partial class Script
     /// <param name="alpha">The curvedness parameter (0 is linear, 1 is round, >1 is increasingly curved)</param>
     /// <param name="skew">The skew parameter (0 is none, positive skews towards longer side, negative towards shorter</param>
     /// <returns>The linearized curved geometry</returns>
+    public static Geom GeomBezierAlphaSkew(Geom geom, double alpha, double skew) => BuildCubicBezier(geom, GeomBezierControls(geom, false, (float)alpha, (float)skew));
 
+    /// <summary>
+    /// Control handles with default parameters
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <returns>Multiline</returns>
     public static Geom GeomBezierControls(Geom geom) => GeomBezierControls(geom, false);
+
+    /// <summary>
+    /// Experimental handles for symmetric control
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <returns>Multiline </returns>
     public static Geom GeomBezierControlsRadius(Geom geom) => GeomBezierControls(geom, true);
-    public static Geom GeomBezierControlsAlpha(Geom geom, double alpha) => GeomBezierControls(geom, (float)alpha, default_skew);
-    public static Geom GeomBezierControlsAlphaSkew(Geom geom, double alpha, double skew) => GeomBezierControls(geom, (float)alpha, (float)skew);
 
-    public static Geom GeomBezier(Geom geom) => CubicBezier(geom, GeomBezierControls(geom, default_alpha, default_skew));
-    public static Geom GeomBezierAlpha(Geom geom, double alpha) => CubicBezier(geom, GeomBezierControls(geom, (float)alpha, default_skew));
-    public static Geom GeomBezierAlphaSkew(Geom geom, double alpha, double skew) => CubicBezier(geom, GeomBezierControls(geom, (float)alpha, (float)skew));
+    /// <summary>
+    /// Control handles with custom curvedness parameter
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <param name="alpha"></param>
+    /// <returns></returns>
+    public static Geom GeomBezierControlsAlpha(Geom geom, double alpha) => GeomBezierControls(geom, false, (float)alpha);
 
+    /// <summary>
+    /// Control handles with custom curvedness and skew parameter
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <param name="alpha">The curvedness parameter (0 is linear, 1 is round, >1 is increasingly curved)</param>
+    /// <param name="skew">The skew parameter (0 is none, positive skews towards longer side, negative towards shorter</param>
+    /// <returns></returns>
+    public static Geom GeomBezierControlsAlphaSkew(Geom geom, double alpha, double skew) => GeomBezierControls(geom, false, (float)alpha, (float)skew);
+
+
+    /// <summary>
+    /// Bezier curve with user supplied controls.
+    /// Checks controls first.
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <param name="controls"></param>
+    /// <returns></returns>
     public static Geom GeomBezierWithControls(Geom geom, Geom controls) {
 
         if (CheckControls(geom, controls) == "OK")
         {
-            return CubicBezier(geom, controls);
+            return BuildCubicBezier(geom, controls);
         }
         else
         {
@@ -55,16 +99,48 @@ public partial class Script
         }
     }
 
+    /// <summary>
+    /// Check user supplied controls
+    /// </summary>
+    /// <param name="geom"></param>
+    /// <param name="controls"></param>
+    /// <returns></returns>
+    public static string CheckControls(Geom geom, Geom controls)
+    {
+        int expected_branches = 0;
 
+        string type = geom.Type;
+
+        for (int bi = 0; bi < geom.Branches.Count; bi++)
+        {
+            expected_branches += 2 * geom.Branches[bi].Coords.Count - 2;
+        }
+        if (controls == null)
+        {
+            return string.Format("Controls is NULL");
+        }
+
+        if (!(controls.Type == "line"))
+        {
+            return string.Format("Wrong type of geometry - expected \"line\", found \"{0}\"", controls.Type);
+        }
+
+        if (!(controls.Branches.Count == expected_branches && controls.Coords.Count == 2 * expected_branches))
+        {
+            return string.Format("Wrong number of control lines / points for {0} - expected {1} / {2}, found {3} / {4}", geom.Type, expected_branches, 2 * expected_branches, controls.Branches.Count, controls.Coords.Count);
+        }
+
+        return "OK";
+    }
 
     /// <summary>
-    /// assumes controls are OK.
+    /// For Geom and *correct* controls builds bezier curve
     /// </summary>
     /// <param name="geom">a geom</param>
     /// <param name="index">an integer</param>
     /// <param name="newCoord">a float64x2</param>
     /// <returns>New geom with one coordinate changed, or geom if index out of range.</returns>
-    private static Geom CubicBezier(Geom geom, Geom controls)
+    private static Geom BuildCubicBezier(Geom geom, Geom controls)
     {
 
         if (geom == null || geom.Type == "point")
@@ -116,144 +192,17 @@ public partial class Script
         return builder.EndGeom();
     }
 
+
+
     /// <summary>
-    /// Finds default control points for a Geom
-    /// First and last coord of any branch have 1 control point(line)
-    /// Middle coords have 2 control points(lines)
-    /// Other way to look would be that any segment has 2 control points
-    /// And those depend on neighbouring segments.
+    /// For the entire geometry, calculate control handles
     /// </summary>
     /// <param name="geom"></param>
+    /// <param name="normal_only"></param>
     /// <param name="alpha"></param>
     /// <param name="skew"></param>
     /// <returns></returns>
-    public static Manifold.Geom GeomBezierControls(Manifold.Geom geom, float alpha, float skew)
-    {
-        if (geom == null || geom.Type == "point")
-        {
-            return null;
-        }
-
-        Manifold.GeomBuilder builder = Manifold.Application.CreateGeomBuilder();
-
-        string type = geom.Type;
-        switch (type)
-        {
-            case "line":
-                builder.StartGeomLine();
-                break;
-            case "area":
-                builder.StartGeomLine();
-                break;
-            default:
-                return null;
-        }
-
-
-        // for every coord (and its prec and succ coord, make a line)
-        // for first and last one, there must be another way
-        // also depending if isRing
-        for (int branch = 0; branch < geom.Branches.Count; ++branch)
-        { 
-            Manifold.Geom.CoordSet coords = geom.Branches[branch].Coords;
-            if (coords.Count >= 3)
-            {
-                // deterine if this branch makes a ring
-                Coord2 first = coords[0];
-                Coord2 last = coords[coords.Count - 1];
-                bool is_ring = Equals(first, last);
-
-                // first and last are always special but different ways whether is_ring on not
-                if (is_ring)
-                {
-                    // This branch is ring and we can take the previous from the end of the branch (NB! the last one equals the first, so we need next to last)
-                    Coord2 prev = coords[coords.Count - 2];
-                    Coord2 curr = first;
-                    Coord2 next = coords[1];
-                    AddBranch(builder, ControlLine(prev, curr, next, alpha, skew, false));
-                } 
-                else
-                {
-                    // This branch is no ring and we must fake the "previous" 
-                    // we give prev and next in opposite order and ask for reflected coord (last argument == true )
-                    Coord2 prev = coords[2];
-                    Coord2 curr = coords[1];
-                    Coord2 next = first;
-                    AddBranch(builder, ControlLine(prev, curr, next, alpha, skew, true));
-                }
-
-                // middle ones are "standard"
-                for (int i = 1; i < coords.Count - 1; ++i)
-                {
-                    Coord2 prev = coords[i - 1];
-                    Coord2 curr = coords[i];
-                    Coord2 next = coords[i + 1];
-                    // find both ways
-                    
-                    // "backwards", no reflection
-                    AddBranch(builder, ControlLine(next, curr, prev, alpha, skew, false));
-                    // "forwards", no reflection
-                    AddBranch(builder, ControlLine(prev, curr, next, alpha, skew, false));
-                }
-
-                // first and last are always special but different ways whether is_ring on not
-                if (is_ring)
-                {
-                    // This branch is ring and we can take the "next" from the start of the branch 
-                    
-                    Coord2 prev = coords[coords.Count - 2];
-                    Coord2 curr = last;
-                    Coord2 next = coords[1];
-                    // we need only "backwards" control, so next, curr, prev
-                    AddBranch(builder, ControlLine(next, curr, prev, alpha, skew, false));
-                }
-                else
-                {
-                    // We find the "forwards" control of next to last point and ask to reflect it
-                    Coord2 prev = coords[coords.Count - 3];
-                    Coord2 curr = coords[coords.Count - 2];
-                    Coord2 next = last;
-                    AddBranch(builder, ControlLine(prev, curr, next, alpha, skew, true));
-                }
-
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        return builder.EndGeom();
-
-    }
-
-
-    public static Coord2[] CoordArray(Manifold.Geom.CoordSet coords, bool extra)
-    {
-        Coord2[] coordsArray;
-
-        int start = 0;
-        
-        if (extra) 
-        {
-            coordsArray = new Coord2[coords.Count + 2];
-            start = 1;
-        }
-        else 
-        {
-            coordsArray = new Coord2[coords.Count];
-        }
-        
-        for (int i=0; i < coords.Count; ++i)
-        {
-            coordsArray[start + i] = coords[i];
-        }
-
-        return coordsArray;
-    }
-
-    /// 
-    private static Manifold.Geom GeomBezierControls(Manifold.Geom geom, bool normal_only)
+    private static Manifold.Geom GeomBezierControls(Manifold.Geom geom, bool normal_only, float alpha = 1, float skew = 0)
     {
         if (geom == null || geom.Type == "point")
         {
@@ -309,7 +258,7 @@ public partial class Script
                     Coord2 next = coords[i + 1];
                     Vector2 v1 = ab2(curr, prev);
                     Vector2 v2 = ab2(curr, next);
-                    Coord2[][] ctl = ControlLines(curr, v1, v2);
+                    Coord2[][] ctl = ControlHandle(curr, v1, v2, alpha, skew);
 
                     if (normal_only)
                     {
@@ -343,54 +292,9 @@ public partial class Script
 
 
 
-    /// <summary>
-    /// Creates a geometry of linearized Cubic Bezier Curves
-    /// defined by the segments of the input
-    /// and a list (or lists) of control points.
-    /// </summary>
-    /// <remarks>
-    /// Typically the control point geometry
-    /// is a <see cref="LineString"/> or <see cref="MultiLineString"/>
-    /// containing an element for each line or ring in the input geometry.
-    /// The list of control points for each linear element must contain two
-    /// vertices for each segment (and thus <code>2 * npts - 2</code>).
-    /// </remarks>
-    /// <param name="geom">The geometry defining the curve</param>
-    /// <param name="controlPoints">A geometry containing the control point elements.</param>
-    /// <returns>The linearized curved geometry</returns>
-
-
-    public static string CheckControls(Geom geom, Geom controls)
-    {
-        int expected_branches = 0;
-
-        string type = geom.Type;
-
-        for (int bi = 0; bi < geom.Branches.Count; bi++)
-        {
-            expected_branches += 2 * geom.Branches[bi].Coords.Count - 2;
-        }
-        if (controls == null )
-        {
-            return string.Format("Controls is NULL");
-        }
-
-        if (!(controls.Type == "line"))
-        {
-            return string.Format("Wrong type of geometry - expected \"line\", found \"{0}\"", controls.Type);
-        }
-
-        if (!(controls.Branches.Count == expected_branches && controls.Coords.Count == 2 * expected_branches))
-        {
-            return string.Format("Wrong number of control lines / points for {0} - expected {1} / {2}, found {3} / {4}", geom.Type, expected_branches, 2 * expected_branches, controls.Branches.Count, controls.Coords.Count);
-        }
-
-        return "OK";
-        
-    }
 
     /// <summary>
-    /// Given segment endpoints and controlpoints 
+    /// Bezier curve for 1 segment + controls
     /// </summary>
     /// <param name="p0"></param>
     /// <param name="p1"></param>
@@ -424,15 +328,15 @@ public partial class Script
     }
 
     /// <summary>
-    /// 
+    /// Control handles for single point and its neighbours
     /// </summary>
-    /// <param name="p0"></param>
-    /// <param name="v1"></param>
-    /// <param name="v2"></param>
+    /// <param name="p0">the point</param>
+    /// <param name="v1">vector to previous point</param>
+    /// <param name="v2">vector to next point</param>
     /// <param name="alpha"></param>
     /// <param name="skew"></param>
     /// <returns></returns>
-    public static Coord2[][] ControlLines(Coord2 p0, Vector2 v1, Vector2 v2, float alpha = 1, float skew = 0)
+    public static Coord2[][] ControlHandle(Coord2 p0, Vector2 v1, Vector2 v2, float alpha = 1, float skew = 0)
     {
 
         // vectors from middle point to previous and to next point
